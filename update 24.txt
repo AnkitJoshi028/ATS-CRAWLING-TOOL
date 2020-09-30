@@ -1,0 +1,4104 @@
+############SPACE FOR GLOBAL VARIABLES#################
+#OPEN SOURCE JOB DATA CRAWLING TOOL
+#CREATE YOUR OWN CLASS AND CRAWL YOUR DATA
+#INTEGRATION OF POWER BI GATEWAY
+#THAT ALLOWS YOU TO SEE THE INSIGHTS ONLINE
+#MACHINE LEARNING INTEGRATION
+
+######################################### DataBase connection Establishes from here########################################
+###########################################################################################################################
+def company_master(company_name,company_size,career_url,ats_name,industry,status_code):
+    
+    import cx_Oracle
+    import config as cfg
+    from datetime import datetime
+    global company_name_insight
+    company_name_insight=company_name
+    #print("ye hain company_name_insight ki value:",company_name_insight)
+    global company_size_insights
+    company_size_insights=company_size
+    global industry_insight
+    industry_insight=industry
+    try: 
+        print("1.Establishing Connection With Oracle")
+        con = cx_Oracle.connect('system/abc') 
+        print("2.Connection Established")
+        # Now execute the sqlquery 
+        cursor = con.cursor() 
+        cursor.execute("insert into company_master values(:1,:2,:3,:4,:5,:6)",(company_name,company_size,career_url,ats_name,industry,status_code)) 
+
+        # commit that insert the provided data 
+        con.commit() 
+    
+        print("3.Company Master Updated") 
+        print("4.Now Crawling is Started For this company")
+    except cx_Oracle.DatabaseError as e: 
+        print("There is a problem with Oracle", e) 
+
+        # by writing finally if any error occurs 
+        # then also we can close the all database operation 
+    finally: 
+        if cursor: 
+            cursor.close() 
+            if con: 
+                con.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################//////////////////ATS CRAWLING SCRIPT////////////////###########################################
+############################################################################################################################
+######################################+++LEVER CLASS DEFINATION START+++####################################################
+############################################################################################################################
+class lever:
+    
+    def __init__(self,company_name,career_url,company_industry):
+        global filename
+        global path
+        self.company_name=company_name
+        self.career_url=career_url
+        self.company_industry=company_industry
+        import os
+        import time
+        parent_dir = "C:\\Users\\Ankit\\Desktop\\JobDataBase"
+        path = os.path.join(parent_dir,self.company_industry)
+        os.chdir(path)
+        try:
+            os.mkdir(self.company_name)
+            #print("Directory " , self.company_name ,  " Created ")
+        except FileExistsError:
+            print("Directory " , self.company_name ,  " already exists")
+            
+        directory = path + '/' + self.company_name
+        os.chdir(directory)
+        path = os.getcwd()
+        print ("5.The current working directory is %s" % path)
+        timstr = time.strftime("%Y%m%d_%H%M%S")
+        filename = self.company_name + '_' + timstr + '.csv'
+        print(filename)
+          
+            
+    def leverdriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        soup=BeautifulSoup(raw_source)
+        global job_links
+        job_links=[]
+        
+        all_links = soup.find_all("a",attrs={'class':'posting-title'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url=link.get("href")
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)
+    def leverextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        global number_of_jobs_insights
+        number_of_jobs_insights=job_count
+        #print(df.JobURL)
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for lever title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            phoneNumRegex = re.compile(r'<h2>(.*?)<',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobTitle[i]=description_to_be_returned#<----regex for lever title
+            
+            
+            ##yaha se description ka regec chalu
+            phoneNumRegex = re.compile(r'<div class="section-wrapper page-full-width">(.*?)<div class="section page-centered last-section-apply"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+            
+            
+            ##yaha se location milega
+            addressLocality=str(re.findall("\"addressLocality\"\s*\:\s*\"(.*?)\"",string))
+            addressLocality=addressLocality[2:-2]
+            df.JobLocation[i]=addressLocality
+                         
+            ##yaha se jobstatus milega
+            phoneNumRegex = re.compile(r'"employmentType" : "(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("employmentType", "")
+            employmentType = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    employmentType += char
+
+            ## printing the string which contains only alphabets
+            #print(employmentType)
+            df.JobStatus[i]=employmentType
+            
+            
+            
+            ##yaha se posted date milea
+            phoneNumRegex = re.compile(r'"datePosted".*?"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            match = re.search(r'\d{4}-\d{2}-\d{2}', description_to_be_returned)
+            date = datetime.datetime.strptime(match.group(), '%Y-%m-%d').date()
+            df.datePosted[i]=date
+            
+            
+            ##yaha se company name milega
+            phoneNumRegex = re.compile(r'"name".*?"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned.replace("name", " ")
+            #print(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned.replace(":", " ")
+            description_to_be_returned=description_to_be_returned.replace("\"", " ")
+            pattern = re.compile(r'\s+')
+            description_to_be_returned=description_to_be_returned.strip()
+            df.companyname[i]=description_to_be_returned
+            
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+            global crawling_date_insight
+            crawling_date_insight=today
+            ##yahan se category mapping hogi
+            
+            
+            
+    def categorymapping(self):
+        import pandas as pd
+        pf=pd.read_csv("C:\\Users\\Ankit\\Desktop\\categorymapping.csv")
+        for i in range(job_count):
+            for j in range(39291):
+                x=df.JobDescription[i].find(pf.skill[j])
+                if(x>=0):
+                    df.skill[i]=pf.skill[j]
+                    df.category[i]=pf.category[j]
+                    break
+                else:
+                    continue
+                
+    def expordingtocsv(self):
+        #directory = path + '/' + self.company_name
+        #os.chdir(directory)
+        #path = os.getcwd()
+        print ("The current working directory is %s" % path)
+
+     
+        #with open(os.path.join(directory, filename), 'w') as fp:
+             #pass
+        #print("Ye actual Data Frame hain jo CSV Bankar DataBase Mein Jane Wala hain",df)
+        global main_category_list
+        main_category_list=list(df.category)
+        global unique_category_list
+        unique_category_list=list(df.category.unique())
+        global length
+        length=len(unique_category_list)
+        df.to_csv(filename, sep=',')
+    
+                
+############################################################################################################################
+######################################+++LEVER CLASS DEFINATION END+++######################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++APPLICANTPRO CLASS DEFINATION START+++#############################################
+############################################################################################################################
+class applicantpro(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+    def applicantprodriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        #print("applicantpro ke driver mein jo url ja rha hai woh ye hain",self.career_url)
+        soup=BeautifulSoup(raw_source)
+        global job_links
+        job_links=[]
+        
+        all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url=link.get("href")
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)
+        
+        
+        
+        
+        
+        
+        
+    def applicantproextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        #print(df.JobURL)
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for applicantpro title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            phoneNumRegex = re.compile(r'<h1>(.*?)</a>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobTitle[i]=description_to_be_returned#<----regex for applicantpro title
+            
+            
+            
+            ##yaha se applicantpro description ka regex chalu
+            phoneNumRegex = re.compile(r'<ul class="job-items">(.*?)<span itemprop="name">',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+           
+        
+        
+        
+        
+            ##yaha se location milega
+            phoneNumRegex = re.compile(r'"addressCountry":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            addressCountry=addressLocality.strip('addressCountry')
+            #print(addressCountry)
+            #df.JobLocation[i]=addressLocality
+            phoneNumRegex = re.compile(r'"addressRegion":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            addressRegion=addressLocality.strip('addressRegion')
+            #print(addressRegion)
+            ###################################################################################
+            ##yaha se location milega
+            phoneNumRegex = re.compile(r'"addressLocality":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            #print(addressLocality)
+            #df.JobLocation[i]=addressLocality
+            x=addressLocality+" "+addressRegion+" "+addressCountry
+            df.JobLocation[i]=x
+
+            
+            
+            #yahan se job status milega
+            phoneNumRegex = re.compile(r'Type">(.*?)</li>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.strip("Type\">")
+            df.JobStatus[i]=description_to_be_returned
+            
+            
+            
+            
+            ##yaha se posted date milea
+            import datetime
+            ##yaha se posted date milea
+            phoneNumRegex = re.compile(r'"datePosted".*?"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            match = re.search(r'\d{4}-\d{2}-\d{2}', description_to_be_returned)
+            date = datetime.datetime.strptime(match.group(), '%Y-%m-%d').date()
+            df.datePosted[i]=date
+            
+            
+            
+            ##yaha se company name milega
+            phoneNumRegex = re.compile(r'"name".*?"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned.replace("name", " ")
+            #print(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned.replace(":", " ")
+            description_to_be_returned=description_to_be_returned.replace("\"", " ")
+            pattern = re.compile(r'\s+')
+            description_to_be_returned=description_to_be_returned.strip()
+            df.companyname[i]=description_to_be_returned
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+############################################################################################################################
+######################################+++APPLICANTPRO CLASS DEFINATION END+++###############################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++breezyHR CLASS DEFINATION START+++#################################################
+############################################################################################################################
+class breezyHR(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+    def breezyHRdriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        #print("breezyHR ke driver mein jo url ja rha hai woh ye hain",self.career_url)
+        soup=BeautifulSoup(raw_source)
+        soup=str(soup)
+        allmatch=re.findall("\<a\s*href\=\"\/p\/(.*?)\"",soup)
+        #print("jo match hoke aayi woh link ye hain")
+        #print(allmatch)
+        global job_links
+        job_links=[]
+        
+        #print("ye rahi job links")
+        for i in allmatch:
+            #career_url=link.get("href")
+            result = re.sub(r'(.*://)?([^/?]+).*', '\g<1>\g<2>', self.career_url)
+            job_links.append(result+"/p/"+i)
+            #print(job_links)
+        #job_count=len(job_links)
+    def breezyHRextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        #print("ye rahi job link jo first cell mein hain data frame ke")
+        #print(df.JobURL[0])
+        #print("aaur ye rha uska count",job_count)
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for breezyhr title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            phoneNumRegex = re.findall(r'\"title\"\:\"(.*?)\"',string)
+            description_to_be_returned=phoneNumRegex
+            description_to_be_returned=str(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned[2:-2]
+            #print("ye rha first title:")
+            
+            df.JobTitle[i]=description_to_be_returned#<----regex for breezyhr title
+            #print(df.JobTitle[0])
+        
+
+            ##yaha se applicantpro description ka regex chalu
+            phoneNumRegex = re.compile(r'<div class="description">(.*?)<div class="apply-container">',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned 
+            
+            
+            #yahan se location milega
+            phoneNumRegex = re.compile(r'"Country","name":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            country=addressLocality.strip("Countryname")
+            #print(country)
+
+
+
+            phoneNumRegex = re.compile(r'"addressLocality":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            state=addressLocality
+            #print(state)
+            #df.JobLocation[i]=addressLocality
+
+
+
+
+            phoneNumRegex = re.compile(r'"addressRegion":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            city=addressLocality.strip("addressRegion")
+            #print(city)
+            #df.JobLocation[i]=addressLocality
+            addressLocality=state+" "+city+" "+country
+            df.JobLocation[i]=addressLocality
+            
+            
+            
+            #yahan se job status milega
+            phoneNumRegex = re.compile(r'"employmentType":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            employmentType=addressLocality.strip("employmentType")
+            df.JobStatus[i]=employmentType
+            
+            
+            ##yahan se posted date milega
+            phoneNumRegex = re.compile(r'"datePosted".*?"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            match = re.search(r'\d{4}-\d{2}-\d{2}', description_to_be_returned)
+            date = datetime.datetime.strptime(match.group(), '%Y-%m-%d').date()
+            #print(date)
+            df.datePosted[i]=date
+            
+            
+            
+            #yahan se company name aayega
+            phoneNumRegex = re.compile(r'"Organization","name":".*?"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            description_to_be_returned=str(re.findall("\"name\"\:\"(.*?)\"",description_to_be_returned))
+            description_to_be_returned=description_to_be_returned[2:-2]
+            df.companyname[i]=description_to_be_returned
+
+            
+            #yahan se crawling date aayegi
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+############################################################################################################################
+######################################+++breezyHR CLASS DEFINATION END+++###############################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++WORKABLE CLASS DEFINATION START+++#############################################
+############################################################################################################################
+class workable(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+    def workabledriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        #raw_source=urlopen(self.career_url)
+        user_agent = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7'
+        passed_url=self.career_url
+        allmatch=re.findall(".*?com\/(.*)",passed_url)
+        allmatch=str(allmatch)
+        allmatch=allmatch[2:-2]
+        allmatch=allmatch.strip("/")
+        #print(allmatch)
+        vartouselater=allmatch
+        workableidurl="https://careers-page.workable.com/api/v1/accounts/"+ allmatch + "?full=true"
+        headers={'User-Agent':user_agent,}
+        request=urllib.request.Request(workableidurl,None,headers)
+        response = urllib.request.urlopen(workableidurl)
+        data = str(response.read())
+        #print(data)
+        phoneNumRegex = re.compile(r'"id":(.*?),',re.S|re.M)
+        mo = phoneNumRegex.search(data)
+        raw_description=mo.group()
+        allmatch=str(re.findall("\"id\"\:(\d+)",raw_description))
+        allmatch=allmatch[2:-2]
+        url = "https://apply.workable.com/api/v1/widget/accounts/"+allmatch+"?company="+vartouselater
+        global epv
+        epv=url################yahan tak ho gya hain
+        #print(epv)
+        global job_links
+        job_links=[]
+        headers={'User-Agent':user_agent,}
+        request=urllib.request.Request(url,None,headers)
+        response = urllib.request.urlopen(request)
+        data = response.read() 
+        soup=str(data)
+        allmatch=str(re.findall("\"url\"\:\"https\:\/\/apply\.workable\.com\/j\/(.*?)\"",soup))
+        #print(allmatch)
+        res = allmatch.strip('][').split(', ')
+        #print(res[0].strip("'"))
+        count=len(res)
+        #print(count)
+        for i in range(count):
+            #print(res[i].strip("'"))
+            job_links.append("https://careers-page.workable.com/api/v1/accounts/"+vartouselater+"/jobs/"+res[i].strip("'"))
+            #print(job_links)
+            global job_count
+        job_count=len(job_links)
+    def workableextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        #global job_count
+        job_count=len(job_links)
+        #print("ye rahi job link jo first cell mein hain data frame ke")
+        #print(df.JobURL[0])
+        #print("aaur ye rha uska count",job_count)
+        #for i in range(job_count):
+           # crawl_url=df.JobURL[i]
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for workable title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            #print(string)
+            phoneNumRegex = re.findall(r'\"title\"\:\"(.*?)\"',string)
+            description_to_be_returned=phoneNumRegex
+            description_to_be_returned=str(description_to_be_returned)
+            #print(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned[2:-2]
+            #print(description_to_be_returned)
+            #print(df.JobTitle[0])       
+            df.JobTitle[i]=description_to_be_returned#<----regex for workable title
+            
+            
+            ##yaha se applicantpro description ka regex chalu
+            phoneNumRegex = re.compile(r'"description":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            data=string
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned = str(re.findall(r'\"description\"\:\"\s*(.*?)\s*\"',description_to_be_returned))
+            df.JobDescription[i]=description_to_be_returned[2:-2]
+           
+            
+
+            ##yahan se location milega
+            phoneNumRegex = re.compile(r'"region":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(data)
+            raw_description=mo.group()
+            raw_description=str(re.findall("\"region\"\:\"(.*?)\"",raw_description))
+            l1=raw_description[2:-2]
+            #print(l1)
+            phoneNumRegex = re.compile(r'"city":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(data)
+            raw_description=mo.group()
+            raw_description=str(re.findall("\"region\"\:\"(.*?)\"",raw_description))
+            l2=raw_description[2:-2]
+            #print(l2)
+            phoneNumRegex = re.compile(r'"country":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(data)
+            raw_description=mo.group()
+            raw_description=str(re.findall("\"country\"\:\"\s*(.*?)\s*\"",raw_description))
+            l3=raw_description[2:-2]
+            #print(l3)
+            x=l1+" "+l2+" "+l3
+            df.JobLocation[i]=x
+            #abhi ke liye comment out kiya hain job status
+            ##yaha se jobstatus milega
+            phoneNumRegex = re.compile(r'"type":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(data)
+            raw_description=mo.group()
+            raw_description=str(re.findall(r'\"type\"\:\"(.*?)"',raw_description))
+            raw_description=raw_description[2:-2]+" "+"time"
+            df.JobStatus[i]=raw_description
+           
+        
+            ##yaha se posted date milea
+            phoneNumRegex = re.compile(r'"published":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(data)
+            raw_description=mo.group()
+            raw_description=str(re.findall("\"published\"\:\"(.*?)T",raw_description))
+            #print(raw_description[2:-2])
+            df.datePosted[i]=raw_description[2:-2]
+            
+            
+            #yahan se company name milega
+            import urllib.request
+            import re
+            user_agent = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7'
+
+            url = epv
+            headers={'User-Agent':user_agent,} 
+
+            request=urllib.request.Request(url,None,headers) 
+            response = urllib.request.urlopen(request)
+            data = str(response.read()) 
+            phoneNumRegex = re.compile(r'"name":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(data)
+            raw_description=mo.group()
+            raw_description=re.findall(r'"name":"(.*?)"',raw_description)
+            df.companyname[i]=raw_description            
+            
+            #yahan se crawling date aayegi
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+############################################################################################################################
+######################################+++workable CLASS DEFINATION END+++###############################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++recruiting paylocity CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class recruitingpaylocity(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+    def recruitingpaylocitydriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        #print("applicantpro ke driver mein jo url ja rha hai woh ye hain",self.career_url)
+        soup=str(BeautifulSoup(raw_source))
+        global job_links
+        job_links=[]
+        
+        phoneNumRegex = re.findall("\"JobId\"\:(.*?)\,",soup)
+        all_links=phoneNumRegex
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://recruiting.paylocity.com/Recruiting/Jobs/Details/" + link
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+
+    def recruitingpaylocityextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        #print(df.JobURL)
+
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for paylocity title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            raw_description=re.findall("\"title\"\:\"(.*?)\"",string)
+            df.JobTitle[i]=raw_description[0]#<----regex for paylocity title
+
+            ##yaha se paylocity description ka regex chalu
+            raw_description=re.findall("\"description\"\:\"(.*?)\"",string)
+            df.JobDescription[i]=raw_description[0]
+
+                
+            ## printing the string which contains only alphabets
+            #print(addressLocality)
+            #df.JobLocation[i]=addressLocality
+            raw_description=str(re.findall("\"addressLocality\"\:\"(.*?)\"",string))
+            l1=raw_description[2:-2]
+            raw_description=str(re.findall("\"addressRegion\"\:\"(.*?)\"",string))
+            l2=raw_description[2:-2]
+            raw_description=str(re.findall("\"addressCountry\"\:\"(.*?)\"",string))
+            l3=raw_description[2:-2]
+            l=l1+" "+l2+" "+l3
+            df.JobLocation[i]=l
+
+            
+            ##yaha se jobstatus milega
+            raw_description=str(re.findall("full-time",string))
+            df.JobStatus[i]=raw_description[2:-2]
+            
+            
+            ##yaha se posted date milea
+            raw_description=re.findall("\"datePosted\"\:\"(.*?)T",string)
+            df.datePosted[i]=raw_description[0]
+            
+            #yahan se company name milega
+            raw_description=re.findall("\"name\"\:\"(.*?)\"",string)
+            df.companyname[i]=raw_description[0]
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++recruiting paylocity CLASS DEFINATION END+++###############################
+############################################################################################################################
+
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++openhire Silkroad CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class silkroad(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+    def silkroaddriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        m = re.search('https?://([A-Za-z_0-9.-]+).*',self.career_url)
+        global domain
+        domain=m.group(1)
+        soup=str(BeautifulSoup(raw_source))
+        global job_links
+        job_links=[]
+        
+        phoneNumRegex = re.findall("\&amp\;jobid\=(.*?)\&",soup)
+        all_links=phoneNumRegex
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://"+domain+"/epostings/index.cfm?fuseaction=app.jobinfo&jobid="+link
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+
+        
+    def silkroadextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        #print(df.JobURL)
+
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for silkroad title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            raw_description=re.findall("class\=\"cssDspJobTitle\".*?\>\s*(.*?)\s*\<",string)
+            df.JobTitle[i]=raw_description[0]#<----regex for paylocity title
+
+
+            ##yaha se silkroad description ka regex chalu
+            phoneNumRegex = re.compile(r'<dt class="cssDspJobHead" id="dspJobTxtDescDiv">(.*?)<div class="footerActionBar">',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+
+            #yahan se location map hoga
+            phoneNumRegex = re.compile(r'<dd class="cssDspJobBody" id="jobPositionLocationDiv">(.*?)</dd>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobLocation[i]=description_to_be_returned
+
+
+            ##yaha se jobstatus milega
+            phoneNumRegex = re.compile(r'<dd class="cssDspJobBody" id="translatedJobPostingTypeDiv">(.*?)</dd>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobStatus[i]=description_to_be_returned
+
+
+
+            ##yaha se posted date milea
+            today = date.today()
+            df.datePosted[i]=today
+
+
+
+            #yahan se company name milega
+            raw_description=re.findall("name\=\"companyname\"\s*type\=\"hidden\"\s*value\=\"(.*?)\"",string)
+            df.companyname[i]=raw_description[0]
+
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++Silkroad CLASS DEFINATION END+++###############################
+############################################################################################################################
+
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++Greenhouse CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class greenhouse(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+    def greenhousedriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        soup=str(BeautifulSoup(raw_source))
+        global job_links
+        job_links=[]
+        
+        phoneNumRegex = re.findall("gh\_jid\=(.*?)\"",soup)
+        all_links=phoneNumRegex
+        #print(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://boards.greenhouse.io/embed/job_app?for=supplementalhealthcare&token="+link
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+     
+    def greenhouseextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        #print(df.JobURL)
+
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            
+            ###yahan se title aayega    
+            raw_description=re.findall("\"title\"\:\"(.*?)\"",string)
+            #tem=raw_description[0]
+            df.JobTitle[i]=raw_description#<----regex for greenhouse title
+
+            ##yaha se silkroad description ka regex chalu
+            phoneNumRegex = re.compile(r'<div class="" id="content">(.*?)<div class="" id="application">',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+            
+            
+            #yahan se location map hoga
+            raw_description=re.findall("\"addressLocality\"\:\"(.*?)\"",string)
+            df.JobLocation[i]=raw_description
+
+            
+            
+            
+            #yahan se status map hoga
+            raw_description=re.findall("\"employmentType\"\:\"(.*?)\"",string)
+            df.JobStatus[i]=raw_description
+            
+            
+
+            ##yaha se posted date milea
+            raw_description=re.findall("\"datePosted\"\:\"(.*?)\"",string)
+            df.datePosted[i]=raw_description
+    
+
+
+            #yahan se company name milega
+            raw_description=re.findall("\"name\"\:\"(.*?)\"",string)
+            df.companyname[i]=raw_description
+
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++Greenhouse CLASS DEFINATION END+++#####################################
+############################################################################################################################
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++applytojob.com CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class applytojob(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+    def applytojobdriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        soup=str(BeautifulSoup(raw_source))
+        global job_links
+        job_links=[]
+
+        
+
+        phoneNumRegex = re.findall("class\=\"list\-group\-item\-heading\"\>\s*\<a\s*href\=\"(.*?)\"",soup)
+        all_links=phoneNumRegex
+        #print(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            job_links.append(link)
+            #print(job_links)
+        job_count=len(job_links)
+        #print(job_count)
+
+
+#print("anki#tjoshi")
+
+        
+    def applytojobextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for silkroad title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            #print(string)
+            raw_description=str(re.findall("\"title\"\:\s*\"(.*?)\"",string))
+            x=raw_description[2:-2]
+            df.JobTitle[i]=x#<----regex for title
+
+            #yahan se description map hoga
+            phoneNumRegex = re.compile(r'<div class="description">(.*?)Read\s*More\s*</a>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            df.JobDescription[i]=description_to_be_returned
+
+
+            #yahan se location map hoga
+            phoneNumRegex = re.compile(r'<i class="fa fa-map-marker">\s*(.*?)\s*</li>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            df.JobLocation[i]=description_to_be_returned
+
+            
+            #yahan se job status map hoga
+            phoneNumRegex = re.compile(r'\<i\s*class\=\"fa\s*fa\-clock\-o\"\>\s*(.*?)\s*\<\/li\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            df.JobStatus[i]=description_to_be_returned
+
+            
+            
+            ##yaha se posted date milea
+            raw_description=str(re.findall("\"datePosted\"\:\s*\"(.*?)\"",string))
+            #print(raw_description[0])
+            df.datePosted[i]=raw_description[2:-2]
+            
+            
+            ##yaha se company name milea
+            raw_description=str(re.findall("\"name\"\:\s*\"(.*?)\"",string))
+            #print(raw_description[0])
+            df.companyname[i]=raw_description[2:-2]
+
+
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++applytojobs CLASS DEFINATION END+++################################################
+############################################################################################################################
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++indeedjobs.com CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class indeedjobs(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+    def indeedjobsdriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        soup=str(BeautifulSoup(raw_source))
+        #print(soup)
+        global job_links
+        job_links=[]
+
+        
+
+        phoneNumRegex = re.findall("\<a\s*data\-tn\-link\=\"\"\s*href\=\"https\:\/\/www\.indeedjobs\.com\/(.*?)\"",soup)
+        all_links=phoneNumRegex
+        #print(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://www.indeedjobs.com/"+link
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+        #print(job_count)
+    def indeedjobsextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for silkroad title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            phoneNumRegex = re.compile(r'\<section\s*class\=\"cp\-card\"\>\s*(.*?)\s*\<\/h1\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobTitle[i]=description_to_be_returned ##yahan se job title map hoga
+            
+            
+            #yahan se description map hoga
+            phoneNumRegex = re.compile(r'\<div\s*data\-tn\-component\=\"jobDescription\"\>\s*(.*?)\s*\<div\s*class\=\"cp\-apply\"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+            
+
+
+            #yahan se location map hoga
+            phoneNumRegex = re.compile(r'Location\s*\<\/dt\>\s*(.*?)\s*\<\/dd\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #description_to_be_returned.strip("Location")
+            df.JobLocation[i]=description_to_be_returned.strip("Location")
+
+            
+            
+            #yahan se job status map hoga
+            phoneNumRegex = re.compile(r'Job\s*Type\s*\<\/dt\>\s*(.*?)\s*\<\/dd\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            raw_description=str(re.findall("\w+\-\w+",description_to_be_returned))
+            df.JobStatus[i]=raw_description[2:-2]
+
+
+
+
+            ##yaha se posted date milea
+            raw_description=str(re.findall("\<p\s*class\=\"post\-date\"\>\s*(.*?)\s*\<\/p\>",string))
+            #print("ye rahi upar wale raw description ki value",raw_description)
+            raw_description=str(re.findall("\d+",raw_description))
+            #print("ye rahi raw des ki value",raw_description)
+            day=int(raw_description[2:-2])
+            #print(day)
+            #print("ankit")
+            day = datetime.timedelta(day)
+            today = date.today()
+            df.datePosted[i]=today-day
+
+            ##yaha se company name milea
+            phoneNumRegex = re.compile(r'\<h1\s*class\=\"cp\-header\-title\"\>(.*?)\<',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            replaced = re.sub('careers', '', description_to_be_returned)
+            df.companyname[i]=replaced
+
+
+
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++indeedjobs.com CLASS DEFINATION END+++#############################################
+############################################################################################################################
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++ejob.bz CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class ejob(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+    def ejobdriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        soup=str(BeautifulSoup(raw_source))
+        #print(soup)
+        global job_links
+        job_links=[]
+
+        
+
+        phoneNumRegex = re.findall("reqGK\=(.*?)\"",soup)
+        all_links=phoneNumRegex
+        #print(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://ejob.bz/ATS/PortalViewRequirement.do?reqGK="+link
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+
+    def ejobextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for ejob title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            phoneNumRegex = re.findall(r'\"title\"\:\"(.*?)\"',string)
+            description_to_be_returned=phoneNumRegex
+            description_to_be_returned=str(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned[2:-2]
+            df.JobTitle[i]=description_to_be_returned ##yahan se job title map hoga
+
+
+
+            #yahan se description map hoga
+            phoneNumRegex = re.compile(r'\<div\s*class\=\"panel\-heading\"\>\s*(.*?)\s*\<div\s*class\=\"panel\s*panel\-body\s*panel\-default\"\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+
+
+            #yahan se location map hoga
+            raw_description=str(re.findall("\"addressLocality\"\:\"(.*?)\"",string))
+            l1=raw_description[2:-2]
+            raw_description=str(re.findall("\"addressRegion\"\:\"(.*?)\"",string))
+            l2=raw_description[2:-2]
+            raw_description=str(re.findall("\"addressCountry\"\:\"(.*?)\"",string))
+            l3=raw_description[2:-2]
+            l=l1+" "+l2+" "+l3
+            df.JobLocation[i]=l
+
+            #yahan se job status milega
+            phoneNumRegex = re.compile(r'"employmentType":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            employmentType=addressLocality.strip("employmentType")
+            df.JobStatus[i]=employmentType
+
+            ##yaha se posted date milea
+            raw_description=re.findall("\"datePosted\"\:\"(.*?)\"",string)
+            #print(raw_description[0])
+            df.datePosted[i]=raw_description[0]
+
+
+            ##yaha se company name milea
+            raw_description=re.findall("\"Organization\"\,\"name\"\:\"(.*?)\"",string)
+            #print(raw_description[0])
+            df.companyname[i]=raw_description[0]
+
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++ejob.bz CLASS DEFINATION END+++#####################################
+############################################################################################################################
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++catsone CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class catsone(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+
+    def catsonedriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        #selfcareer_url="https://canidium.catsone.com/careers/"
+        raw_source=urlopen(self.career_url)
+        m = re.search('https?://([A-Za-z_0-9.-]+).*',self.career_url)
+        global domain
+        domain=m.group(1)
+        soup=str(BeautifulSoup(raw_source))
+        global job_links
+        job_links=[]
+        
+        phoneNumRegex = re.findall("\<a\s*class\=\"sc\-jqCOkK\s*bbAcyi\"\s*href\=\"\/(.*?)\"",soup)
+        all_links=phoneNumRegex
+        #print(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://"+domain+"/"+link
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+
+    def catsoneextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for ejob title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            #print("First Links ka source String mein aa gya hain")
+            ##yaha se catsone title ka regex chalu
+            phoneNumRegex = re.compile(r'\<h2\s*class\=\"sc\-kjoXOD\s*hPcTwY\"\>\s*(.*?)\s*\<',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobTitle[i]=description_to_be_returned
+            
+            #yahan se description map hoga
+            ##yaha se catsone description ka regex chalu
+            phoneNumRegex = re.compile(r'<div class="sc-fAjcbJ llvTUS">\s*(.*?)\s*\<div\s*class\=\"d\-none\s*d\-md\-block\s*sc\-eqIVtm\s*fKjvPP\"\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+        
+
+            #yahan se location map hoga
+            phoneNumRegex = re.compile(r'\<span\s*class\=\"text\-muted\"\>\s*(.*?)\s*\<',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobLocation[i]=description_to_be_returned
+
+            #yahan se job status milega
+            #phoneNumRegex = re.compile(r'"employmentType":"(.*?)"',re.S|re.M)
+            #mo = phoneNumRegex.search(string)
+            #raw_description=mo.group()
+            #cleantext = BeautifulSoup(raw_description, "lxml").text
+            #description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            #addressLocality = ""
+            #for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                #if char.isalpha():
+                   # addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            #employmentType=addressLocality.strip("employmentType")
+            df.JobStatus[i]='[]'
+
+            
+            
+            ##yaha se posted date milea
+            raw_description=str(re.findall("\"datePosted\"\:\"(.*?)T",string))
+            df.datePosted[i]=raw_description[2:12]
+
+
+            ##yaha se company name milea
+            raw_description=re.findall("\"Organization\"\,\"name\"\:\"(.*?)\"",string)
+            #print(raw_description[0])
+            df.companyname[i]=raw_description[0]
+
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++catsone CLASS DEFINATION END+++####################################################
+############################################################################################################################
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++paycomonline CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class paycomonline(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+    def paycomonlinedriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        soup=str(BeautifulSoup(raw_source))
+        #print(soup)
+        global job_links
+        job_links=[]
+
+        
+
+        phoneNumRegex = re.findall("\"url\"\:\"\\\/v4\\\/ats\\\/web\.php\\\/jobs\\\/ViewJobDetails\?job\=(.*?)\"",soup)
+        all_links=phoneNumRegex
+        #print(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://www.paycomonline.net/v4/ats/web.php/jobs/ViewJobDetails?job="+link
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+       
+    def paycomonlineextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+     
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for ejob title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            #print("First Links ka source String mein aa gya hain")
+            ##yaha se catsone title ka regex chalu
+            phoneNumRegex = re.findall(r'\"title\"\:\"(.*?)\"',string)
+            description_to_be_returned=phoneNumRegex
+            description_to_be_returned=str(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned[2:-2]
+            #print(description_to_be_returned)
+            df.JobTitle[i]=description_to_be_returned##<--yahan se job title map hoga
+       
+        
+            #yahan se hrmdirect ka decription milega
+            phoneNumRegex = re.compile(r'<div name="main">\s*(.*?)\s*<div name="job-hidden">',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            df.JobDescription[i]=description_to_be_returned
+
+
+            #yahan se hrmdirect ka location map hoga
+            raw_description=str(re.findall("\"addressLocality\"\:\"(.*?)\"",string))
+            l1=raw_description[2:-2]
+            raw_description=str(re.findall("\"addressRegion\"\:\"(.*?)\"",string))
+            l2=raw_description[2:-2]
+            raw_description=str(re.findall("\"addressCountry\"\:\"(.*?)\"",string))
+            l3=raw_description[2:-2]
+            l=l1+" "+l2+" "+l3
+            #print(l)
+            df.JobLocation[i]=l
+            
+        
+        
+
+            #yahan se job status milega
+            phoneNumRegex = re.compile(r'"employmentType":"(.*?)"',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            addressLocality = ""
+            for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                if char.isalpha():
+                    addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            employmentType=addressLocality.strip("employmentType")
+            #print(employmentType)            
+            df.JobStatus[i]=employmentType 
+        
+        
+            ##yaha se posted date milea
+            raw_description=str(re.findall("\"datePosted\"\:\"(.*?)\"",string))
+            #print(raw_description[2:-2])
+            df.datePosted[i]=raw_description[2:-2]        
+        
+
+        
+        
+        
+        
+            ##yaha se company name milea
+            raw_description=str(re.findall("\"Organization\"\,\"name\"\:\"(.*?)\"",string))
+            raw_description=raw_description[2:-2]
+            #print(raw_description)
+            df.companyname[i]=raw_description
+
+            
+            
+            
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++paycomonline CLASS DEFINATION END+++#####################################
+############################################################################################################################
+            
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++hrmdirect CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class hrmdirect(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+           
+    def hrmdirectdriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        m = re.search('https?://([A-Za-z_0-9.-]+).*',self.career_url)
+        global domain
+        domain=m.group(1)
+        
+        soup=str(BeautifulSoup(raw_source))
+        #print(soup)
+        global job_links
+        job_links=[]
+
+        
+
+        phoneNumRegex = re.findall("\<a\s*href\=\"job\-opening\.php\?req\=(.*?)\&",soup)
+        all_links=phoneNumRegex
+        #print(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://"+domain+"/employment/job-opening.php?req="+link+"&&&nohd#job"
+            job_links.append(career_url)
+            #print(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+         
+            
+    def hrmdirectextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+            
+            
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for ejob title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            #print("First Links ka source String mein aa gya hain")
+            ##yaha se catsone title ka regex chalu
+            ##yaha se hrmdirect ka title ka regex chalu
+            phoneNumRegex = re.findall(r'\<h2\>\s*(.*?)\s*\<\/h2\>',string)
+            description_to_be_returned=phoneNumRegex
+            description_to_be_returned=str(description_to_be_returned)
+            description_to_be_returned=description_to_be_returned[2:-2]
+            #print(description_to_be_returned)
+            df.JobTitle[i]=description_to_be_returned##<--yahan se job title map hoga
+           
+            
+            #yahan se hrmdirect ka decription milega
+            phoneNumRegex = re.compile(r'<div class="jobDesc">\s*(.*?)\s*</div>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #print(description_to_be_returned)
+            df.JobDescription[i]=description_to_be_returned
+            
+            #yahan se location map hoga          
+            phoneNumRegex = re.compile(r'Location\:\s*\<\/b\>\s*(.*?)\s*\<\/tr\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=description_to_be_returned.strip("Location")
+            description_to_be_returned=description_to_be_returned.strip(":")
+            #print(description_to_be_returned)
+            df.JobLocation[i]=description_to_be_returned
+            
+            
+           
+            #yahan se job status milega
+            #phoneNumRegex = re.compile(r'"employmentType":"(.*?)"',re.S|re.M)
+            #mo = phoneNumRegex.search(string)
+            #raw_description=mo.group()
+            #cleantext = BeautifulSoup(raw_description, "lxml").text
+            #description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            #addressLocality = ""
+            #for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                #if char.isalpha():
+                    #addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            #employmentType=addressLocality.strip("employmentType")
+            #print(employmentType)            
+            df.JobStatus[i]="[]" 
+        
+            
+            
+            ##yaha se posted date milea
+            #raw_description=str(re.findall("\"datePosted\"\:\"(.*?)\"",string))
+            ##print(raw_description[2:-2])
+            df.datePosted[i]="[]"        
+        
+            
+            
+            #yahan se company name map hoga
+            phoneNumRegex = re.compile(r'\<title\>\s*(.*?)\s*\<\/title\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            description_to_be_returned=str(re.findall("areers.*?t(.*)",description_to_be_returned))
+            description_to_be_returned=description_to_be_returned[2:-2]
+            #print(description_to_be_returned)
+            df.companyname[i]=description_to_be_returned
+            
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++hrmdirect CLASS DEFINATION END+++#####################################
+############################################################################################################################
+           
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++hirebridgr CLASS DEFINATION START+++#####################################
+############################################################################################################################
+class hirebridge(lever):
+    def __init__(self,company_name,career_url,company_industry):
+        lever.__init__(self,company_name,career_url,company_industry)
+
+           
+    def hirebridgedriver(self):
+        from bs4 import BeautifulSoup
+        from datetime import date
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+        raw_source=urlopen(self.career_url)
+        m = re.search('cid=(.*)',selfcareer_url)
+        global domain
+        domain=m.group(1)
+        #rint(domain)
+        soup=str(BeautifulSoup(raw_source))
+        #rint(soup)
+        global job_links
+        job_links=[]
+
+        
+
+        phoneNumRegex = re.findall("\&amp\;jid\=(.*?)\&",soup)
+        all_links=phoneNumRegex
+        #rint(all_links)
+        #all_links = soup.find_all("a",attrs={'class':'list-group-item strip-side-borders'})##<--Function that extract career links generic driver code
+        for link in all_links:
+            career_url= "https://recruit.hirebridge.com/v3/Jobs/JobDetails.aspx?cid="+domain+"&jid="+link
+            job_links.append(career_url)
+            #rint(job_links)
+        #job_count=len(job_links)        
+        job_count=len(job_links)
+            
+    def hirebridgeextraction(self):
+        from bs4 import BeautifulSoup
+        import datetime
+        from datetime import date
+        
+        import pandas as pd
+        import urllib.request
+        from urllib.request import urlopen
+        import re
+
+        column_names = ["JobURL","JobTitle","JobLocation","JobDescription","JobStatus","datePosted","category","skill","companyname","crawlingdate"]
+        global df
+        df = pd.DataFrame(columns = column_names)
+        df.JobURL=job_links
+        global job_count
+        job_count=len(job_links)
+        print("hirebridge ka driver end")   
+      
+        for i in range(job_count):
+            crawl_url=df.JobURL[i]
+            raw_html = urlopen(crawl_url)#<----regex for ejob title
+            soup = BeautifulSoup(raw_html)
+            string=soup.prettify()
+            #print("First Links ka source String mein aa gya hain")
+            ##yaha se hirebridge title ka regex chalu
+            phoneNumRegex = re.compile(r'\<span\s*id\=\"ctl00\_pageContent\_ctl00\_jobtitle\"\>\s*(.*?)\s*\<\/span\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #rint(description_to_be_returned)
+            df.JobTitle[i]=description_to_be_returned           
+   
+            #yahan se location map hoga
+            phoneNumRegex = re.compile(r'\<span id\=\"ctl00\_pageContent\_ctl00\_jobloc\"\>\s*(.*?)\s*\<\/span\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #rint(description_to_be_returned)
+            df.JobLocation[i]=description_to_be_returned
+    
+            
+            #yahan se description map hoga
+            phoneNumRegex = re.compile(r'\<span\s*id\=\"ctl00\_pageContent\_ctl00\_jobdesc\"\>\s*(.*?)\s*\<\/div\>',re.S|re.M)
+            mo = phoneNumRegex.search(string)
+            raw_description=mo.group()
+            cleantext = BeautifulSoup(raw_description, "lxml").text
+            description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            df.JobDescription[i]=description_to_be_returned
+
+          
+            #yahan se job status milega
+            #phoneNumRegex = re.compile(r'"employmentType":"(.*?)"',re.S|re.M)
+            #mo = phoneNumRegex.search(string)
+            #raw_description=mo.group()
+            #cleantext = BeautifulSoup(raw_description, "lxml").text
+            #description_to_be_returned=re.sub("\s\s+" , " ", cleantext)
+            #description_to_be_returned=description_to_be_returned.replace("addressLocality", "")
+            #addressLocality = ""
+            #for char in description_to_be_returned:
+
+            ## checking whether the char is an alphabet or not using chr.isalpha() method
+                #if char.isalpha():
+                    #addressLocality += char
+    
+            ## printing the string which contains only alphabets
+            #employmentType=addressLocality.strip("employmentType")
+            df.JobStatus[i]="[]"
+
+         
+             ##yaha se posted date milea
+            #raw_description=str(re.findall("\"datePosted\"\:\"(.*?)\"",string))
+            #print(raw_description[2:-2])
+            df.datePosted[i]="[]"        
+        
+           
+            ##yaha se company name
+            raw_description=str(re.findall("\'\&caption\=(.*?)\'",string))
+            #print(raw_description[2:-2])
+            df.companyname[i]=raw_description[2:-2]            
+   
+            ##yaha se crawling date aayegi
+            today = date.today()
+            df.crawlingdate[i]=today
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+############################################################################################################################
+######################################+++hirebridgr CLASS DEFINATION START+++#####################################
+############################################################################################################################
+            
+###############################################################################################################################
+########################################Fetching of Insights starts from here##################################################
+##############################################################################################################################
+
+def globalinsights():
+    #print("aa gya main globalinsights mein")
+    #print("global variable hain:")
+    #print(company_name_insight)
+    #print(crawling_date_insight)
+    #print(industry_insight)
+    #print(number_of_jobs_insights)
+    #print(company_size_insights)
+    import cx_Oracle
+    import config as cfg
+    from datetime import datetime
+    try:
+        con = cx_Oracle.connect('system/abc')
+        cursor = con.cursor()
+        #print("ye company insight ki latest value hain",company_name_insight)
+        cursor.execute("insert into global_insights values(:1,:2,:3,:4,:5)",(company_name_insight,crawling_date_insight,industry_insight,number_of_jobs_insights,company_size_insights))
+        con.commit()
+    except cx_Oracle.DatabaseError as e:
+        print("There is a problem with Oracle", e)
+    finally:
+        if cursor:
+            cursor.close()
+            if con:
+                con.close()
+
+############################################################################################################################
+#########################################Fetching of Insights ends from here################################################
+############################################################################################################################
+
+###############################################################################################################################
+########################################Fetching of categorywise Insights starts from here#####################################
+##############################################################################################################################
+def category_insights():
+    #print("aa gya main globalinsights mein")
+    #print("global variable hain:")
+    #print(company_name_insight)
+    #print(crawling_date_insight)
+    #print(industry_insight)
+    #print(number_of_jobs_insights)
+    #print(company_size_insights)
+    import cx_Oracle
+    import config as cfg
+    from datetime import datetime
+    try:
+        con = cx_Oracle.connect('system/abc')
+        cursor = con.cursor()
+        #print("ye company insight ki latest value hain",company_name_insight)
+        for i in range(length):
+            ###yahan se category wise count database mein jayega
+            company_name=company_name_insight
+            industry=industry_insight
+            crawling_date=crawling_date_insight
+            #category=category_global
+            #category_wise_count=catery_count_global
+            total_jobs=number_of_jobs_insights
+            category=unique_category_list[i]
+            xuv=main_category_list.count(unique_category_list[i])
+            category_wise_count=xuv        
+            cursor.execute("insert into category_insights values(:1,:2,:3,:4,:5,:6)",(company_name,industry,crawling_date,category,category_wise_count,total_jobs))
+            con.commit()
+    #print("Category Wise Insights Saved inside the DataBase")
+    except cx_Oracle.DatabaseError as e:
+        print("There is a problem with Oracle", e)
+    finally:
+        if cursor:
+            cursor.close()
+            if con:
+                con.close()
+
+###############################################################################################################################
+########################################Fetching of categorywise Insights ends from here#####################################
+##############################################################################################################################
+
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+
+############################################################################################################################
+######################################+++IF ELSE STATEMENTS+++##############################################################
+############################################################################################################################
+import emoji 
+
+
+def atschecking(ats_name_formal,company_name_formal,career_url_formal,industry):
+    if(ats_name_formal==".tedk12.com"):
+        obj=tedk12(company_name_formal,career_url_formal,industry)
+        obj.tedk12driver()
+        obj.tedk12extraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of tedk12 will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="&sortDirection"):
+        obj=sortDirection(company_name_formal,career_url_formal,industry)
+        obj.sortDirectiondriver()
+        obj.sortDirectionextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of sortDirection will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="aaimtrack.com"):
+        obj=aaimtrack(company_name_formal,career_url_formal,industry)
+        obj.aaimtrackdriver()
+        obj.aaimtrackextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of aaimtrack will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="acquiretm.com"):
+        obj=applicantpro(company_name_formal,career_url_formal,industry)
+        obj.acquiretmdriver()
+        obj.acquiretmextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of acquiretm will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="api.hireology.com"):
+        obj=apihireology(company_name_formal,career_url_formal,industry)
+        obj.apihireologydriver()
+        obj.apihireologyextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of apihireology will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="app.crelate.com"):
+        obj=appcrelate(company_name_formal,career_url_formal,industry)
+        obj.appcrelatedriver()
+        obj.appcrelateextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of appcrelate will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="app.jazz.co"):
+        obj=appjazz(company_name_formal,career_url_formal,industry)
+        obj.appjazzdriver()
+        obj.appjazzextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of appjazz will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="app.trinethire.com"):
+        obj=apptrinethire(company_name_formal,career_url_formal,industry)
+        obj.apptrinethiredriver()
+        obj.apptrinethireextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of apptrinethire will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="applicantlist.com"):
+        obj=applicantlist(company_name_formal,career_url_formal,industry)
+        obj.applicantlistdriver()
+        obj.applicantlistextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of applicantlist will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="applicantpool.com"):
+        obj=applicantpro(company_name_formal,career_url_formal,industry)
+        obj.applicantpooldriver()
+        obj.applicantpoolextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of applicantpool will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="applicantpro"):
+        obj=applicantpro(company_name_formal,career_url_formal,industry)
+        obj.applicantprodriver()
+        obj.applicantproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of applicantpro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="applicantstack.com"):
+        obj=applicantstack(company_name_formal,career_url_formal,industry)
+        obj.applicantstackdriver()
+        obj.applicantstackextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of applicantstack will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="applytojob.com"):
+        print("Entere URL Should be of This type only : https://mmsholdingsinc.applytojob.com/")
+        obj=applytojob(company_name_formal,career_url_formal,industry)
+        obj.applytojobdriver()
+        obj.applytojobextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of applytojob will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="appone.com"):
+        obj=appone(company_name_formal,career_url_formal,industry)
+        obj.apponeprodriver()
+        obj.apponeextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of appone will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="apscareerportal.com"):
+        obj=apscareerportal(company_name_formal,career_url_formal,industry)
+        obj.apscareerportaldriver()
+        obj.apscareerportalextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of apscareerportal will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="atsondemand.com"):
+        obj=atsondemand(company_name_formal,career_url_formal,industry)
+        obj.atsondemanddriver()
+        obj.atsondemandextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of atsondemand will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="avature.net"):
+        obj=avature(company_name_formal,career_url_formal,industry)
+        obj.avaturedriver()
+        obj.avatureextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of avature will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="bamboohr.com"):
+        obj=bamboohr(company_name_formal,career_url_formal,industry)
+        obj.bamboohrdriver()
+        obj.bamboohrextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of bamboohr will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="boards.greenhouse.io"):
+        print("Please Note Entered URL should be in this format only: https://boards.greenhouse.io/embed/job_board?for=supplementalhealthcare")
+        obj=greenhouse(company_name_formal,career_url_formal,industry)
+        obj.greenhousedriver()
+        obj.greenhouseextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of greenhouse will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="brassring"):
+        obj=brassring(company_name_formal,career_url_formal,industry)
+        obj.brassringdriver()
+        obj.brassringextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of brassring will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="breezy.HR"):
+        obj=breezyHR(company_name_formal,career_url_formal,industry)
+        
+        obj.breezyHRdriver()
+        obj.breezyHRextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of breezyHR will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="bullhornstaffing"):
+        obj=bullhornstaffing(company_name_formal,career_url_formal,industry)
+        obj.bullhornstaffingdriver()
+        obj.bullhornstaffingextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of bullhornstaffing will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="careerplug.com"):
+        obj=careerplug(company_name_formal,career_url_formal,industry)
+        obj.careerplugdriver()
+        obj.careerplugextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of careerplug will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="careers.peopleclick.com"):
+        obj=peopleclick(company_name_formal,career_url_formal,industry)
+        obj.peopleclickdriver()
+        obj.peopleclickextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of peopleclick will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="catsone"):
+        obj=catsone(company_name_formal,career_url_formal,industry)
+        obj.catsonedriver()
+        obj.catsoneextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of catsone will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="csod.com"):
+        obj=csod(company_name_formal,career_url_formal,industry)
+        obj.csoddriver()
+        obj.csodextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of csod will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="dayforcehcm.com"):
+        obj=dayforcehcm(company_name_formal,career_url_formal,industry)
+        obj.dayforcehcmdriver()
+        obj.dayforcehcmextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of dayforcehcm will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="e3applicants.com"):
+        obj=e3applicants(company_name_formal,career_url_formal,industry)
+        obj.e3applicantsdriver()
+        obj.e3applicantsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of e3applicants will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="easyapply.co"):
+        obj=easyapply(company_name_formal,career_url_formal,industry)
+        obj.easyapplydriver()
+        obj.easyapplyextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of easyapply will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="efficientapply.com"):
+        obj=efficientapply(company_name_formal,career_url_formal,industry)
+        obj.efficientapplydriver()
+        obj.efficientapplyextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of efficientapply will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="ejob.bz"):
+        obj=ejob(company_name_formal,career_url_formal,industry)
+        obj.ejobdriver()
+        obj.ejobextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of ejob will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="governmentjobs.com"):
+        obj=governmentjobs(company_name_formal,career_url_formal,industry)
+        obj.governmentjobsdriver()
+        obj.governmentjobsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of governmentjobs will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="hcshiring.com"):
+        obj=hcshiring(company_name_formal,career_url_formal,industry)
+        obj.hcshiringdriver()
+        obj.hcshiringextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hcshiring will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="healthcaresource.com"):
+        obj=healthcaresource(company_name_formal,career_url_formal,industry)
+        obj.healthcaresourcedriver()
+        obj.healthcaresourceextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of healthcaresource will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="hire.withgoogle.com"):
+        obj=hirewithgoogle(company_name_formal,career_url_formal,industry)
+        obj.hirewithgoogledriver()
+        obj.hirewithgoogleextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hirewithgoogle will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="hirebridge.com"):
+        obj=hirebridge(company_name_formal,career_url_formal,industry)
+        obj.hirebridgedriver()
+        obj.hirebridgeextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hirebridge will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="hirecentric.com"):
+        obj=hirecentric(company_name_formal,career_url_formal,industry)
+        obj.hirecentricdriver()
+        obj.hirecentricextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hirecentric will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="hiringthing.com"):
+        obj=hiringthing(company_name_formal,career_url_formal,industry)
+        obj.hiringthingdriver()
+        obj.hiringthingextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hiringthing will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="hrapply.com"):
+        obj=hrapply(company_name_formal,career_url_formal,industry)
+        obj.hrapplydriver()
+        obj.hrapplyextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hrapply will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="hrmdirect"):
+        obj=hrmdirect(company_name_formal,career_url_formal,industry)
+        obj.hrmdirectdriver()
+        obj.hrmdirectextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hrmdirect will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="hrservicesinc"):
+        obj=hrservicesinc(company_name_formal,career_url_formal,industry)
+        obj.hrservicesincdriver()
+        obj.hrservicesincextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hrservicesinc will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="hrsmart.com"):
+        obj=hrsmart(company_name_formal,career_url_formal,industry)
+        obj.hrsmartdriver()
+        obj.hrsmartextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of hrsmart will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="iapplicants.com"):
+        obj=iapplicants(company_name_formal,career_url_formal,industry)
+        obj.iapplicantsdriver()
+        obj.iapplicantsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of iapplicants will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="icims"):
+        obj=icims(company_name_formal,career_url_formal,industry)
+        obj.icimsdriver()
+        obj.icimsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of icims will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="indeedjobs.com"):
+        obj=indeedjobs(company_name_formal,career_url_formal,industry)
+        obj.indeedjobsdriver()
+        obj.indeedjobsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of indeedjobs will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="internal.findly.com"):
+        obj=internalfindly(company_name_formal,career_url_formal,industry)
+        obj.internalfindlydriver()
+        obj.internalfindlyextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of internalfindly will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="interviewexchange.com"):
+        obj=interviewexchange(company_name_formal,career_url_formal,industry)
+        obj.interviewexchangedriver()
+        obj.interviewexchangeextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of interviewexchange will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="isolvedhire.com"):
+        obj=isolvedhire(company_name_formal,career_url_formal,industry)
+        obj.isolvedhiredriver()
+        obj.isolvedhireextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of isolvedhire will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="jobdiva.com"):
+        obj=jobdiva(company_name_formal,career_url_formal,industry)
+        obj.jobdivadriver()
+        obj.jobdivaextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of jobdiva will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="joblinkapply.com"):
+        obj=joblinkapply(company_name_formal,career_url_formal,industry)
+        obj.joblinkapplydriver()
+        obj.joblinkapplyextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of joblinkapply will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="jobs.jobvite.com"):
+        obj=jobsjobvite(company_name_formal,career_url_formal,industry)
+        obj.jobsjobvitedriver()
+        obj.jobsjobviteextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of jobsjobvite will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="jobs.lever"):
+        obj=lever(company_name_formal,career_url_formal,industry)
+        obj.leverdriver()
+        obj.leverextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("6.CSV created in the local Data Base") 
+        print("7.Now we are Capturing Insights From job Data")
+        globalinsights()
+        print("8. Insights Saved in the DataBase Successfully")
+        print("9.Now Computing Category Wise Insights")
+        category_insights()
+        #print("10.Category wise insights stored in Database Successfully")
+        #choice=input("Do you want to continue Press Yes to continue and No to Exit:")
+        #if(choice=='Yes'):
+            #company_name= input("Enter company name:")
+            #import requests
+            #company_name= input("Enter company name:")
+            #industry=input("Enter Industry:")
+            #career_url= input("Enter career URL name:")
+            #ats_name= input("Enter ATS name:")
+            #company_size=input("Enter Company Size:")
+                 
+            #print("CRAWLING STATUS:-")
+            #r = requests.head(career_url)
+            #status_code=r.status_code
+            #company_master(company_name,company_size,career_url,ats_name,industry,status_code)
+            #atschecking(ats_name,company_name,career_url,industry)
+        #elif(choice=='No'):
+            #print("Thanks for using our crawling tool , enjoy ;)")
+            #print("\N{grinning face}")
+
+            
+    elif(ats_name_formal=="jobs.net"):
+        obj=jobsnet(company_name_formal,career_url_formal,industry)
+        obj.jobsnetdriver()
+        obj.jobsnetextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of jobsnet will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="jobs.ourcareerpages.com"):
+        obj=ourcareerpages(company_name_formal,career_url_formal,industry)
+        obj.ourcareerpagesdriver()
+        obj.ourcareerpagesextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of ourcareerpages will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="jobs.smartsearchonline.com"):
+        obj=smartsearchonline(company_name_formal,career_url_formal,industry)
+        obj.smartsearchonlinedriver()
+        obj.smartsearchonlineextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of smartsearchonline will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="jobscore.com"):
+        obj=jobscore(company_name_formal,career_url_formal,industry)
+        obj.jobscoredriver()
+        obj.jobscoreextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of jobscore will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="jobsoid.com"):
+        obj=jobsoid(company_name_formal,career_url_formal,industry)
+        obj.jobsoiddriver()
+        obj.jobsoidextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of jobsoid will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="ListJobs/All"):
+        obj=ListJobsAll(company_name_formal,career_url_formal,industry)
+        obj.ListJobsAlldriver()
+        obj.ListJobsAllextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of ListJobsAll will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="localjobnetwork.com"):
+        obj=localjobnetwork(company_name_formal,career_url_formal,industry)
+        obj.localjobnetworkdriver()
+        obj.localjobnetworkextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of localjobnetwork will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="mrinetwork.com"):
+        obj=mrinetwork(company_name_formal,career_url_formal,industry)
+        obj.mrinetworkdriver()
+        obj.mrinetworkextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of mrinetwork will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="mua.hrdepartment.com"):
+        obj=muahrdepartment(company_name_formal,career_url_formal,industry)
+        obj.muahrdepartmentdriver()
+        obj.muahrdepartmentextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of muahrdepartment will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="mytalentlink.hrdpt.com"):
+        obj=mytalentlinkhrdpt(company_name_formal,career_url_formal,industry)
+        obj.mytalentlinkhrdptdriver()
+        obj.mytalentlinkhrdptextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of mytalentlinkhrdpt will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="myworkdayjobs"):
+        obj=myworkdayjobs(company_name_formal,career_url_formal,industry)
+        obj.myworkdayjobsdriver()
+        obj.myworkdayjobsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of myworkdayjobs will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="newton.newtonsoftware.com"):
+        obj=newtonsoftware(company_name_formal,career_url_formal,industry)
+        obj.newtonsoftwaredriver()
+        obj.newtonsoftwareextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of newtonsoftware will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="oraclecloud.com"):
+        obj=oraclecloud(company_name_formal,career_url_formal,industry)
+        obj.oracleclouddriver()
+        obj.oraclecloudextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of oraclecloud will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="paycomonline"):
+        obj=paycomonline(company_name_formal,career_url_formal,industry)
+        obj.paycomonlinedriver()
+        obj.paycomonlineextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of paycomonline will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="peopleadmin.com"):
+        obj=peopleadmin(company_name_formal,career_url_formal,industry)
+        obj.peopleadmindriver()
+        obj.peopleadminextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of peopleadmin will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="pm.healthcaresource.com"):
+        obj=pmhealthcaresource(company_name_formal,career_url_formal,industry)
+        obj.pmhealthcaresourcedriver()
+        obj.pmhealthcaresourceextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of applicantpro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="prevueaps.com"):
+        obj=prevueaps(company_name_formal,career_url_formal,industry)
+        obj.prevueapsdriver()
+        obj.prevueapsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of prevueaps will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="re11.ultipro.com"):
+        obj=re11ultipro(company_name_formal,career_url_formal,industry)
+        obj.re11ultiprodriver()
+        obj.re11ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of re11ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="re22.ultipro.com"):
+        obj=re22ultipro(company_name_formal,career_url_formal,industry)
+        obj.re22ultiprodriver()
+        obj.re22ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of re22ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruit.zohopublic.com"):
+        obj=zohopublic(company_name_formal,career_url_formal,industry)
+        obj.zohopublicdriver()
+        obj.zohopublicextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of zohopublic will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruitee.com"):
+        obj=recruitee(company_name_formal,career_url_formal,industry)
+        obj.recruiteedriver()
+        obj.recruiteeextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruitee will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruiterbox.com"):
+        obj=recruiterbox(company_name_formal,career_url_formal,industry)
+        obj.recruiterboxdriver()
+        obj.recruiterboxextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruiterbox will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruiting ultipro"):
+        obj=recruitingultipro(company_name_formal,career_url_formal,industry)
+        obj.recruitingultiprodriver()
+        obj.recruitingultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruitingultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruiting.adp.com"):
+        obj=recruitingadp(company_name_formal,career_url_formal,industry)
+        obj.recruitingadpdriver()
+        obj.recruitingadpextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruitingadp will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="recruiting.paylocity.com"):
+        obj=recruitingpaylocity(company_name_formal,career_url_formal,industry)
+        obj.recruitingpaylocitydriver()
+        obj.recruitingpaylocityextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruitingpaylocity will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruiting.ultipro.com"):
+        obj=recruitingdotultipro(company_name_formal,career_url_formal,industry)
+        obj.recruitingdotultiprodriver()
+        obj.recruitingdotultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruitingdotultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruiting2.ultipro.com"):
+        obj=recruiting2ultipro(company_name_formal,career_url_formal,industry)
+        obj.recruiting2ultiprodriver()
+        obj.recruiting2ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruiting2 ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="recruitingsite.com"):
+        obj=recruitingsite(company_name_formal,career_url_formal,industry)
+        obj.recruitingsitedriver()
+        obj.recruitingsiteextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of recruitingsite will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="rew11.ultipro.com"):
+        obj=rew11ultipro(company_name_formal,career_url_formal,industry)
+        obj.rew11ultiprodriver()
+        obj.rew11ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of  rew11 ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="rew12.ultipro.com"):
+        obj=rew12ultipro(company_name_formal,career_url_formal,industry)
+        obj.rew12ultiprodriver()
+        obj.rew12ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of rew12 ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="rew22.ultipro.com"):
+        obj=rew22ultipro(company_name_formal,career_url_formal,industry)
+        obj.rew22ultiprodriver()
+        obj.rew22ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of rew22 ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="rew31.ultipro.com"):
+        obj=rew31ultipro(company_name_formal,career_url_formal,industry)
+        obj.rew31ultiprodriver()
+        obj.rew31ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of rew31ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="rn11.ultipro.com"):
+        obj=rn11ultipro(company_name_formal,career_url_formal,industry)
+        obj.rn11ultiprodriver()
+        obj.rn11ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of rn11ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="rn21.ultipro.com"):
+        obj=rn21ultipro(company_name_formal,career_url_formal,industry)
+        obj.rn21ultiprodriver()
+        obj.rn21ultiproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of rn21ultipro will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+      
+    elif(ats_name_formal=="RSS Feed"):
+        obj=RSSFeed(company_name_formal,career_url_formal,industry)
+        obj.RSSFeeddriver()
+        obj.RSSFeedextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of RSS Feed will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="search-jobs"):
+        obj=searchjobs(company_name_formal,career_url_formal,industry)
+        obj.searchjobsdriver()
+        obj.searchjobsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of search-jobs will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="secure.force.com"):
+        obj=secureforce(company_name_formal,career_url_formal,industry)
+        obj.secureforcedriver()
+        obj.secureforceextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of secure.force will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="secure4.entertimeonline.com"):
+        obj=secure4entertimeonline(company_name_formal,career_url_formal,industry)
+        obj.secure4entertimeonlinedriver()
+        obj.secure4entertimeonlineextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of secure4.entertimeonline will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="selectminds.com"):
+        obj=selectminds(company_name_formal,career_url_formal,industry)
+        obj.selectmindsdriver()
+        obj.selectmindsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of selectminds will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="silkroad"):
+        obj=silkroad(company_name_formal,career_url_formal,industry)
+        obj.silkroaddriver()
+        obj.silkroadextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of silkroad will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="smartrecruiters.com"):
+        obj=smartrecruiters(company_name_formal,career_url_formal,industry)
+        obj.smartrecruitersdriver()
+        obj.smartrecruitersextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of smartrecruiters will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="snaphire.com"):
+        obj=snaphire(company_name_formal,career_url_formal,industry)
+        obj.snaphiredriver()
+        obj.snaphireextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of snaphire will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="successfactors"):
+        obj=successfactors(company_name_formal,career_url_formal,industry)
+        obj.successfactorsdriver()
+        obj.successfactorsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of successfactors will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+    elif(ats_name_formal=="synchr-recruit.com"):
+        obj=synchrrecruit(company_name_formal,career_url_formal,industry)
+        obj.synchrrecruitdriver()
+        obj.synchrrecruitextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of synchr-recruit will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="talentreef"):
+        obj=talentreef(company_name_formal,career_url_formal,industry)
+        obj.talentreefdriver()
+        obj.talentreefextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of talentreef will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="theapplicantmanager.com"):
+        obj=theapplicantmanager(company_name_formal,career_url_formal,industry)
+        obj.theapplicantmanagerdriver()
+        obj.theapplicantmanagerextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of theapplicantmanager will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="theresumator.com"):
+        obj=theresumator(company_name_formal,career_url_formal,industry)
+        obj.theresumatordriver()
+        obj.applicantproextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of theresumator will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+
+    elif(ats_name_formal=="workable.com"):
+        obj=workable(company_name_formal,career_url_formal,industry)
+        obj.workabledriver()
+        obj.workableextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of workable will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="workbrightats.com"):
+        obj=workbrightats(company_name_formal,career_url_formal,industry)
+        obj.workbrightatsdriver()
+        obj.workbrightatsextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of workbrightats will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="workforcenow ADP"):
+        obj=workforcenowADP(company_name_formal,career_url_formal,industry)
+        obj.workforcenowADPdriver()
+        obj.workforcenowADPextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of workforcenow ADP will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="xml"):
+        obj=xml(company_name_formal,career_url_formal,industry)
+        obj.xmldriver()
+        obj.xmlextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of xml will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+
+
+    elif(ats_name_formal=="ziprecruiter.com"):
+        obj=ziprecruiter(company_name_formal,career_url_formal,industry)
+        obj.ziprecruiterdriver()
+        obj.ziprecruiterextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of ziprecruiter will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+    elif(ats_name_formal=="zohorecruit.com"):
+        obj=zohorecruit(company_name_formal,career_url_formal,industry)
+        obj.zohorecruitdriver()
+        obj.zohorecruitextraction()
+        obj.categorymapping()
+        obj.expordingtocsv()
+        print("object of zohorecruit will be created") 
+        choice=input("Do you want to continue Press Yes to continue and No to Exit")
+        if(choice=='Yes'):
+            company_name= input("Enter company name:")
+            industry=input("Enter Industry:")
+            career_url= input("Enter career URL name:")
+            ats_name= input("Enter ATS name:")
+            atschecking(ats_name,company_name,career_url,industry)
+        elif(choice=='No'):
+            print("Thanks for using our crawling tool , enjoy ;)")
+            print("\N{grinning face}")
+############################################################################################################################
+######################################+++IF ELSE STATEMENTS END HERE+++#####################################################
+############################################################################################################################
+
+
+#############################################################################################################
+#######################################Anjo Batches (TASK SCHEDULAR)#########################################
+#############################################################################################################
+#!/usr/bin/python
+import cx_Oracle
+import pandas as pd
+global companyname
+companyname=[]
+global companysize
+companysize=[]
+global url
+url=[]
+global ats_name
+ats_name=[]
+global industry
+industry=[]
+global status_code
+status_code=[]
+connstr='system/abc'
+conn = cx_Oracle.connect(connstr)
+curs = conn.cursor()
+curs.arraysize=50
+curs.execute('SELECT *FROM company_master')
+#print("COMPANY_NAME\tCOMPANY_SIZE\tURL\tATS_NAME\tINDUSTRY\tSTATUS_CODE\n")
+for column_1, column_2, column_3,column_4,column_5,column_6 in curs.fetchall():
+    #YAHAN SE DATAFRAME MEIN VALUES JAYENGI
+    companyname.append(column_1)
+    companysize.append(column_2)
+    url.append(column_3)
+    ats_name.append(column_4)
+    industry.append(column_5)
+    status_code.append(column_6)
+dict = {'COMPANY_NAME': companyname, 'COMPANY_SIZE': companysize, 'URL': url, 'ATS_NAME': ats_name, 'INDUSTRY': industry, 'STATUS_CODE': status_code}
+df = pd.DataFrame(dict)
+curs.close()
+conn.close()
+df = df.rename(columns={'URL ': 'URL'})
+global dataframesize
+dataframesize=len(df)
+for i in range(dataframesize):
+    try:
+        #yahan se exception handling ki handling
+        #companyname=[]
+        #companysize=[]
+        #url=[]
+        #ats_name=[]
+        #industry=[]
+        #status_code=[]
+
+    
+        ##yahan se shuru hoga real code
+        import requests
+        r = requests.head(url[i])
+        status_code=r.status_code
+        if(status_code==200):
+            print("---->CRAWLING STATUS: crawling ",i+1,"th company saved in company master")
+            #print(status_code[i])
+            #print(industry[i])
+            #print(ats_name[i])
+            #print(url[i])
+            #print(companysize[i])
+            #print(companyname[i])
+            company_master(companyname[i],companysize[i],url[i],ats_name[i],industry[i],status_code)
+            atschecking(ats_name[i],companyname[i],url[i],industry[i])
+            
+        else:
+            ##ye code tab chalega jabstatuscode 200 nahi hoga:
+            company_master(companyname[i],companysize[i],url[i],ats_name[i],industry[i],status_code)
+            
+    except AttributeError:
+        continue
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+############################################################################################################################
+######################################+++MAIN SCRIPT START FROM HERE+++#####################################################
+############################################################################################################################
+#import requests
+#company_name= input("Enter company name:")
+#industry=input("Enter Industry:")
+#career_url= input("Enter career URL name:")
+#ats_name= input("Enter ATS name:")
+#company_size=input("Enter Company Size:")
+
+#print("CRAWLING STATUS:-")
+#r = requests.head(career_url)
+#status_code=r.status_code
+#company_master(company_name,company_size,career_url,ats_name,industry,status_code)
+#atschecking(ats_name,company_name,career_url,industry)
+############################################################################################################################
