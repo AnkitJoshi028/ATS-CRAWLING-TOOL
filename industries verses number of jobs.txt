@@ -1,0 +1,65 @@
+#!/usr/bin/python
+import cx_Oracle
+import pandas as pd
+global companyname
+companyname=[]
+global crawling_date_insight
+crawling_date_insight=[]
+global industry_insight
+industry_insight=[]
+global number_of_jobs_insights
+number_of_jobs_insights=[]
+global company_size_insights
+company_size_insights=[]
+connstr='system/abc'
+conn = cx_Oracle.connect(connstr)
+curs = conn.cursor()
+curs.arraysize=50
+curs.execute('select distinct *from global_insights where INDUSTRY_INSIGHT=\'Information Technology and Services\' order by CRAWLING_DATE_INSIGHT')
+#print("COMPANY_NAME\tCOMPANY_SIZE\tURL\tATS_NAME\tINDUSTRY\tSTATUS_CODE\n")
+for column_1, column_2, column_3,column_4,column_5 in curs.fetchall():
+    #YAHAN SE DATAFRAME MEIN VALUES JAYENGI
+    companyname.append(column_1)
+    crawling_date_insight.append(column_2)
+    industry_insight.append(column_3)
+    number_of_jobs_insights.append(column_4)
+    company_size_insights.append(column_5)
+    
+dict = {'COMPANY_NAME_INSIGHT': companyname, 'CRAWLING_DATE_INSIGHT': crawling_date_insight, 'INDUSTRY_INSIGHT': industry_insight, 'NUMBER_OF_JOBS_INSIGHTS': number_of_jobs_insights, 'COMPANY_SIZE_INSIGHTS': company_size_insights}
+df = pd.DataFrame(dict)
+curs.close()
+conn.close()
+global_industry=industry
+count=[]
+df = df.rename(columns={'URL ': 'URL'})
+#df.loc[df['CRAWLING_DATE_INSIGHT'] == '27-SEP-20']
+uniquedate=list(df.CRAWLING_DATE_INSIGHT.unique())
+#print(uniquedate)
+xc=len(uniquedate)
+global job_count
+job_count=[]
+df1 = pd.DataFrame(uniquedate,columns =['Crawling Date'])
+#df1
+
+i=0
+for i in range(xc):
+    ##loop
+    dflist=df.loc[df['CRAWLING_DATE_INSIGHT'] == uniquedate[i]]
+    dflist
+    total=dflist.NUMBER_OF_JOBS_INSIGHTS.sum()
+    #print(total)
+    job_count.append(total)
+df2 = pd.DataFrame(job_count,columns =['No of Jobs'])
+df = pd.DataFrame(list(zip(uniquedate, job_count)), columns =['Crawling Date', 'No of Jobs'])
+print(df)
+import matplotlib.pyplot as plt 
+fig = plt.figure(figsize = (10, 5)) 
+  
+# creating the bar plot 
+plt.bar(uniquedate, job_count, color ='maroon',  
+        width = 0.4) 
+  
+plt.xlabel("Dates") 
+plt.ylabel("No. of Live jobs") 
+plt.title("INDUSTRY v/s NUMBER OF JOBS") 
+print(plt.show())

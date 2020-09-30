@@ -1,0 +1,56 @@
+#!/usr/bin/python
+import cx_Oracle
+import pandas as pd
+global companyname
+companyname=[]
+global companysize
+companysize=[]
+global url
+url=[]
+global ats_name
+ats_name=[]
+global industry
+industry=[]
+global status_code
+status_code=[]
+connstr='system/abc'
+conn = cx_Oracle.connect(connstr)
+curs = conn.cursor()
+curs.arraysize=50
+curs.execute('SELECT *FROM company_master order by COMPANY_SIZE')
+#print("COMPANY_NAME\tCOMPANY_SIZE\tURL\tATS_NAME\tINDUSTRY\tSTATUS_CODE\n")
+for column_1, column_2, column_3,column_4,column_5,column_6 in curs.fetchall():
+    #YAHAN SE DATAFRAME MEIN VALUES JAYENGI
+    companyname.append(column_1)
+    companysize.append(column_2)
+    url.append(column_3)
+    ats_name.append(column_4)
+    industry.append(column_5)
+    status_code.append(column_6)
+dict = {'COMPANY_NAME': companyname, 'COMPANY_SIZE': companysize, 'URL': url, 'ATS_NAME': ats_name, 'INDUSTRY': industry, 'STATUS_CODE': status_code}
+df = pd.DataFrame(dict)
+curs.close()
+conn.close()
+
+global_company_size=companysize
+count=[]
+df = df.rename(columns={'URL ': 'URL'})
+companysize=list(set(companysize))
+#print(companysize)
+i=0
+for i in range(len(companysize)):
+    ft=global_company_size.count(companysize[i])
+    count.append(ft)
+df1 = pd.DataFrame(companysize,columns =['Company_Size']) 
+df2 = pd.DataFrame(count,columns =['COMPANY_COUNT']) 
+df=df1.join(df2)
+fig = plt.figure(figsize = (15, 10)) 
+  
+# creating the bar plot 
+plt.bar(df.Company_Size , df.COMPANY_COUNT, color ='maroon',  
+        width = 0.6) 
+  
+plt.xlabel("Company Size") 
+plt.ylabel("Number Of Companies") 
+plt.title("Number Of Companies Saved in Data Base Based on Company Size") 
+plt.show()
