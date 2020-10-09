@@ -1,0 +1,50 @@
+#!/usr/bin/python
+global job_count
+job_count=[]
+import cx_Oracle
+import pandas as pd
+global companyname
+companyname=[]
+global crawling_date_insight
+crawling_date_insight=[]
+global industry_insight
+industry_insight=[]
+global number_of_jobs_insights
+number_of_jobs_insights=[]
+global category_wise_count
+category_wise_count=[]
+global category_insights
+category_insights=[]
+global total_job_count
+total_job_count=[]
+connstr='system/abc'
+conn = cx_Oracle.connect(connstr)
+curs = conn.cursor()
+curs.arraysize=50
+curs.execute('select distinct *from category_insights where company_name=\'Ansira Partners, Inc.\' and crawling_date=\'22-SEP-20\'')
+#print("COMPANY_NAME\tCOMPANY_SIZE\tURL\tATS_NAME\tINDUSTRY\tSTATUS_CODE\n")
+for column_1, column_2, column_3,column_4,column_5,column_6 in curs.fetchall():
+    #YAHAN SE DATAFRAME MEIN VALUES JAYENGI
+    companyname.append(column_1)
+    industry_insight.append(column_2)
+    crawling_date_insight.append(column_3)
+    category_insights.append(column_4)
+    category_wise_count.append(column_5)
+    total_job_count.append(column_6)
+dict = {'COMPANY_NAME_INSIGHT': companyname, 'INDUSTRY_INSIGHT': industry_insight, 'CRAWLING_DATE_INSIGHT': crawling_date_insight, 'CATEGORY_INSIGHTS': category_insights, 'CATEGORY_WISE_COUNT': category_wise_count, 'TOTAL_JOB_COUNT': total_job_count}
+df = pd.DataFrame(dict)
+curs.close()
+conn.close()
+count=[]
+df = df.rename(columns={'URL ': 'URL'})
+#df
+df1=list(df.CATEGORY_INSIGHTS)
+df2=list(df.CATEGORY_WISE_COUNT)
+#pdnew=pd.concat([df1,df2])
+from matplotlib import pyplot as plt
+import numpy as np 
+fig = plt.figure(figsize =(10, 7)) 
+plt.pie(df2, labels = df1) 
+  
+# show plot 
+print(plt.show())
